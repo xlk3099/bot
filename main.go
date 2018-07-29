@@ -1,0 +1,210 @@
+package main
+
+import (
+	"crypto/tls"
+	"flag"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/onrik/logrus/filename"
+	log "github.com/sirupsen/logrus"
+	"github.com/xlk3099/ok-trading/ok"
+	"github.com/xlk3099/ok-trading/utils"
+)
+
+var addr = flag.String("addr", "real.okex.com:10440", "http service address")
+
+func init() {
+	// init logrus
+	formatter := &log.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: "2006-01-02T15:04:05",
+	}
+
+	log.SetFormatter(formatter)
+	// Output to stdout instead of the default stderr
+	// Can be any io.Writer, see below for File example
+	log.SetOutput(os.Stdout)
+	filenameHook := filename.NewHook()
+	filenameHook.Field = "source"
+	log.AddHook(filenameHook)
+}
+
+func main() {
+
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+
+	tradeEMA5()
+	// var wg sync.WaitGroup
+	// wg.Add(1)
+	// go func() {
+	// 	defer wg.Done()
+	// 	updateEMA1()
+	// }()
+	// go func() {
+	// 	defer wg.Done()
+	// 	updateEMA5()
+	// }()
+	// go func() {
+	// 	defer wg.Done()
+	// 	updateEMA30()
+	// }()
+	// wg.Wait()
+}
+
+func trade() {
+	// 比较ma20, ma
+}
+
+// func updateEMA1() {
+// 	// calculate ema1
+// 	btc := ok.NewPair("bch_usd", "this_week", "", "")
+// 	ema := func() *utils.Ema {
+// 		klines := btc.GetFutureKlineData("1min")
+// 		ema := utils.NewEma(12)
+// 		for _, k := range klines {
+// 			ema.Add(k.TimeStamp, k.Close)
+// 		}
+// 		return ema
+// 	}
+// 	log.Info("1min:", ema().Latest())
+// 	ticker := time.NewTicker(1 * time.Minute)
+// 	defer ticker.Stop()
+// 	for {
+// 		select {
+// 		case <-ticker.C:
+// 			ema := ema()
+// 			log.Info("1min:", ema.Latest())
+// 		}
+// 	}
+// }
+
+func tradeEMA5() {
+	// calculate EMA5
+	// calculate ema1
+	etc := ok.NewPair("etc_usd", "this_week", "", "")
+	fma := func() *utils.Ema {
+		klines := etc.GetFutureKlineData("5min")
+		fma := utils.NewEma(12)
+		for _, k := range klines {
+			fma.Add(k.TimeStamp, k.Close)
+		}
+		return fma
+	}
+	sma := func() *utils.Ema {
+		klines := etc.GetFutureKlineData("5min")
+		sma := utils.NewEma(50)
+		for _, k := range klines {
+			sma.Add(k.TimeStamp, k.Close)
+		}
+		return sma
+	}
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			ema12 := fma()
+			ema50 := sma()
+			fpr := etc.GetFuturePos4Fix()
+			userInfo := etc.GetFutureUserInfo4Fix()
+			amtToTrade := int(userInfo.Info.Etc.Balance / 5 * 20)
+			if utils.IsGoldCross(ema12, ema50) {
+				log.Info("卧槽，金叉了。。。")
+				ft := etc.GetFutureTicker()
+				if len(fpr.Holdings) > 0 {
+					amtClose := fpr.Holdings[0].SellAvailable
+					if amtClose > 0 {
+						rsp := etc.FutureTrade(utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtClose), ok.CloseShort, true)
+						if rsp.Result == true {
+							log.Info("大爷止损成功")
+						} else {
+							log.Error("大爷止损失败")
+						}
+					}
+					if cha := fpr.Holdings[0].BuyAmount; cha < amtToTrade {
+						rsp := etc.FutureTrade(utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-cha), ok.Long, true)
+						if rsp.Result == true {
+							log.Info("大爷增单成功：", amtToTrade-cha)
+						} else {
+							log.Error("大爷增单失败")
+						}
+						continue
+					}
+				}
+				rsp := etc.FutureTrade(utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade), ok.Long, true)
+				if rsp.Result == true {
+					log.Info("大爷开多成功,张数：", amtToTrade)
+				} else {
+					log.Info("大爷开多失败....很遗憾，检查程序bug吧。。。")
+				}
+			}
+
+			if utils.IsDeadCross(ema12, ema50) {
+				log.Info("卧槽，死叉了。。。")
+				ft := etc.GetFutureTicker()
+				if len(fpr.Holdings) > 0 {
+					amtClose := fpr.Holdings[0].BuyAvailable
+					if amtClose > 0 {
+						rsp := etc.FutureTrade(utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtClose), ok.CloseLong, true)
+						if rsp.Result == true {
+							log.Info("大爷止损成功")
+						} else {
+							log.Error("大爷止损失败")
+						}
+					}
+					if cha := fpr.Holdings[0].SellAmount; cha < amtToTrade {
+						rsp := etc.FutureTrade(utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-cha), ok.Short, true)
+						if rsp.Result == true {
+							log.Info("大爷增单成功：", amtToTrade-cha)
+						} else {
+							log.Error("大爷增单失败")
+						}
+						continue
+					}
+				}
+				rsp := etc.FutureTrade(utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade), ok.Short, true)
+				if rsp.Result == true {
+					log.Info("大爷开空成功", amtToTrade)
+				} else {
+					log.Info("大爷开多失败....很遗憾，检查程序bug吧。。。")
+				}
+			}
+			log.Info("5min EMA12:", ema12.Current(), " 5min EMA50:", ema50.Current())
+		}
+	}
+}
+
+// func updateEMA30() {
+// 	// calculate EMA30
+// 	btc := ok.NewPair("bch_usd", "this_week", "", "")
+// 	ema := func() *utils.Ema {
+// 		klines := btc.GetFutureKlineData("30min")
+// 		ema := utils.NewEma(12)
+// 		for _, k := range klines {
+// 			ema.Add(k.TimeStamp, k.Close)
+// 		}
+// 		return ema
+// 	}
+// 	log.Info("30min:", ema().Latest())
+// 	ticker := time.NewTicker(1 * time.Minute)
+// 	defer ticker.Stop()
+// 	for {
+// 		select {
+// 		case <-ticker.C:
+// 			ema := ema()
+// 			log.Info("30min:", ema.Latest())
+// 		}
+// 	}
+// }
+
+// func updateEMA60() {
+// 	// calculate EMA60
+// 	btc := ok.NewPair("bch_usd", "this_week", "", "")
+
+// 	btc.GetFutureKlineData("5min")
+// 	ticker := time.NewTicker(60 * time.Minute)
+// 	defer ticker.Stop()
+// }
