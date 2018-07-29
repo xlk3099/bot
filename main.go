@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"flag"
 	"net/http"
 	"os"
@@ -101,7 +102,7 @@ func tradeEMA5() {
 		}
 		return sma
 	}
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
@@ -110,6 +111,10 @@ func tradeEMA5() {
 			ema50 := sma()
 			fpr := etc.GetFuturePos4Fix()
 			userInfo := etc.GetFutureUserInfo4Fix()
+			if len(fpr.Holdings) > 0 {
+				data, _ := json.Marshal(fpr.Holdings[0])
+				log.Info(string(data))
+			}
 			amtToTrade := int(userInfo.Info.Etc.Balance / 5 * 20)
 			if utils.IsGoldCross(ema12, ema50) {
 				log.Info("卧槽，金叉了。。。")
