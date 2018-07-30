@@ -173,7 +173,6 @@ func tradeEMA5() {
 					log.Info("大爷开空失败....很遗憾，检查程序bug吧。。。")
 				}
 			}
-			log.Info("5min EMA12:", ema12.Current(), " 5min EMA50:", ema50.Current())
 		}
 	}
 }
