@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"flag"
 	"net/http"
@@ -111,10 +110,6 @@ func tradeEMA5() {
 			ema12 := fma()
 			ema50 := sma()
 			fpr := doGetFurturePos4Fix(etc)
-			if len(fpr.Holdings) > 0 {
-				data, _ := json.Marshal(fpr.Holdings[0])
-				log.Info(string(data))
-			}
 			userInfo := etc.GetFutureUserInfo4Fix()
 			amtToTrade := int(userInfo.Info.Etc.Balance / 5 * 20)
 			ft := etc.GetFutureTicker()
@@ -226,7 +221,7 @@ func doGetFurturePos4Fix(pair *ok.Pair) *ok.FuturePosResp {
 			err = errNotFound
 		}
 		time.Sleep(300 * time.Millisecond)
-		return attempt < 10, err // try 5 times
+		return attempt < 10, err // try 10 times
 	})
 
 	if err != nil {
