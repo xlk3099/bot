@@ -208,14 +208,15 @@ func tryTakeProfit(etc *ok.Pair, ft *ok.FutureTicker, hold *ok.Holding, ema50 *u
 	const profitTakeRatio100 = 100.00
 	const profitTakeRatio200 = 200.00
 
-	var success bool
 	// 检查当前仓位
 	// 做空止盈
 	if amtToClose := hold.SellAvailable; amtToClose > 0 {
 		f, _ := strconv.ParseFloat(hold.SellProfitLossratio, 64)
 		if f >= profitTakeRatio50 || f >= profitTakeRatio100 || f >= profitTakeRatio200 {
-			success = doTrade(etc, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtToClose/2), ok.CloseShort, false)
-			log.Info("稳得不行， 一半收益已经进入腰包。。。")
+			success := doTrade(etc, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtToClose/2), ok.CloseShort, false)
+			if success == true {
+				log.Info("稳得不行， 一半收益已经进入腰包。。。")
+			}
 		}
 		return
 	}
@@ -223,8 +224,10 @@ func tryTakeProfit(etc *ok.Pair, ft *ok.FutureTicker, hold *ok.Holding, ema50 *u
 	if amtToClose := hold.BuyAvailable; amtToClose > 0 {
 		f, _ := strconv.ParseFloat(hold.SellProfitLossratio, 64)
 		if f >= profitTakeRatio50 || f >= profitTakeRatio100 || f >= profitTakeRatio200 {
-			success = doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToClose/2), ok.CloseLong, false)
-			log.Info("稳得不行， 一半收益已经进入腰包。。。")
+			success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToClose/2), ok.CloseLong, false)
+			if success == true {
+				log.Info("稳得不行， 一半收益已经进入腰包。。。")
+			}
 		}
 		return
 	}
