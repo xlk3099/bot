@@ -17,6 +17,8 @@ import (
 
 var addr = flag.String("addr", "real.okex.com:10440", "http service address")
 
+type state = string
+
 func init() {
 	// init logrus
 	formatter := &log.TextFormatter{
@@ -103,6 +105,8 @@ func tradeEMA5() {
 		return sma
 	}
 	ticker := time.NewTicker(5 * time.Second)
+	var currentHolding float64
+	var state string
 	defer ticker.Stop()
 	for {
 		select {
@@ -114,7 +118,6 @@ func tradeEMA5() {
 			amtToTrade := int(userInfo.Info.Etc.Balance / 5 * 20)
 			ft := etc.GetFutureTicker()
 			if utils.IsGoldCross(ema12, ema50, ft.Ticker.Last) {
-				log.Info("卧槽，金叉了。。。")
 				if len(fpr.Holdings) > 0 {
 					amtClose := fpr.Holdings[0].SellAvailable
 					if amtClose > 0 {
@@ -129,22 +132,25 @@ func tradeEMA5() {
 						success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-cha), ok.Long, true)
 						if success {
 							log.Info("大爷增单成功：", amtToTrade-cha)
+							currentHolding = amtToTrade
 						} else {
 							log.Error("大爷增单失败")
 						}
 						continue
 					}
 				}
-				success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade), ok.Long, true)
-				if success == true {
-					log.Info("大爷开多成功,张数：", amtToTrade)
-				} else {
-					log.Info("大爷开多失败....很遗憾，检查程序bug吧。。。")
+				if currentHolding < amtToTrade*3/4 {
+					success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-currentHolding), ok.Long, true)
+					if success == true {
+						log.Info("大爷开多成功,张数：", amtToTrade)
+						currentHolding = amtToTrade
+					} else {
+						log.Info("大爷开多失败....很遗憾，检查程序bug吧。。。")
+					}
 				}
 			}
 
 			if utils.IsDeadCross(ema12, ema50, ft.Ticker.Last) {
-				log.Info("卧槽，死叉了。。。")
 				ft := etc.GetFutureTicker()
 				if len(fpr.Holdings) > 0 {
 					amtClose := fpr.Holdings[0].BuyAvailable
@@ -160,17 +166,21 @@ func tradeEMA5() {
 						success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-cha), ok.Short, true)
 						if success {
 							log.Info("大爷增单成功：", amtToTrade-cha)
+							currentHolding = amtToTrade
 						} else {
 							log.Error("大爷增单失败")
 						}
 						continue
 					}
 				}
-				success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade), ok.Short, true)
-				if success {
-					log.Info("大爷开空成功", amtToTrade)
-				} else {
-					log.Info("大爷开空失败....很遗憾，检查程序bug吧。。。")
+				if currentHolding < amtToTrade*3/4 {
+					success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-currentHolding), ok.Short, true)
+					if success {
+						log.Info("大爷开空成功", amtToTrade)
+						currentHolding = amtToTrade
+					} else {
+						log.Info("大爷开空失败....很遗憾，检查程序bug吧。。。")
+					}
 				}
 			}
 		}
