@@ -105,7 +105,7 @@ func tradeEMA5() {
 		return sma
 	}
 	ticker := time.NewTicker(5 * time.Second)
-	var currentHolding float64
+	var currentHolding int
 	var state string
 	defer ticker.Stop()
 	for {
