@@ -113,7 +113,6 @@ func tradeEMA5() {
 			userInfo := etc.GetFutureUserInfo4Fix()
 			amtToTrade := int(userInfo.Info.Etc.Balance / 5 * 20)
 			ft := etc.GetFutureTicker()
-
 			if utils.IsGoldCross(ema12, ema50, ft.Ticker.Last) {
 				log.Info("卧槽，金叉了。。。")
 				if len(fpr.Holdings) > 0 {

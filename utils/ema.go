@@ -1,6 +1,8 @@
 package utils
 
-import "github.com/ethereum/go-ethereum/log"
+import (
+	log "github.com/sirupsen/logrus"
+)
 
 var limit = 10000
 
