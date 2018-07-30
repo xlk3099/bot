@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/onrik/logrus/filename"
@@ -39,13 +40,18 @@ func main() {
 
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
-	tradeEMA5()
-	// var wg sync.WaitGroup
-	// wg.Add(1)
-	// go func() {
-	// 	defer wg.Done()
-	// 	updateEMA1()
-	// }()
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		tradeEMA15("etc_usd", "this_week")
+	}()
+
+	go func() {
+		defer wg.Done()
+		tradeEMA15("bch_usd", "this_week")
+	}()
+	wg.Wait()
 	// go func() {
 	// 	defer wg.Done()
 	// 	updateEMA5()
@@ -84,10 +90,10 @@ func trade() {
 // 	}
 // }
 
-func tradeEMA5() {
-	etc := ok.NewPair("etc_usd", "this_week", "", "")
+func tradeEMA15(name string, contractType string) {
+	pair := ok.NewPair(name, contractType)
 	fma := func() *utils.Ema {
-		klines := etc.GetFutureKlineData("15min")
+		klines := pair.GetFutureKlineData("15min")
 		fma := utils.NewEma(12)
 		for _, k := range klines {
 			fma.Add(k.TimeStamp, k.Close)
@@ -95,7 +101,7 @@ func tradeEMA5() {
 		return fma
 	}
 	sma := func() *utils.Ema {
-		klines := etc.GetFutureKlineData("15min")
+		klines := pair.GetFutureKlineData("15min")
 		sma := utils.NewEma(50)
 		for _, k := range klines {
 			sma.Add(k.TimeStamp, k.Close)
@@ -105,7 +111,7 @@ func tradeEMA5() {
 
 	ema12 := fma()
 	ema50 := sma()
-
+	log.WithFields(log.Fields{"交易对": name, "fma": ema12.Current(), "sma": ema50.Current()}).Info("成功上线...")
 	ticker5 := time.NewTicker(5 * time.Second)
 	ticker1 := time.NewTicker(1 * time.Second)
 
@@ -120,82 +126,88 @@ func tradeEMA5() {
 	for {
 		select {
 		case <-ticker1.C:
-			fpr = doGetFurturePos4Fix(etc)
-			ft = etc.GetFutureTicker()
+			fpr = doGetFurturePos4Fix(pair)
+			ft = pair.GetFutureTicker()
 			if len(fpr.Holdings) > 0 {
 				hold := fpr.Holdings[0]
-				tryTakeProfit(etc, ft, &hold, ema50)
+				tryTakeProfit(pair, ft, &hold)
 			}
 		case <-ticker5.C:
 			ema12 = fma()
 			ema50 = sma()
-			// userInfo := etc.GetFutureUserInfo4Fix()
-			// amtToTrade := int(userInfo.Info.Etc.Balance / 5 * 20)
-			var amtToTrade = 10
+			userInfo := pair.GetFutureUserInfo4Fix()
+			var amtToTrade int
+			switch name {
+			case "bch_usd":
+				amtToTrade = int(userInfo.Info.Bch.Balance * 150)
+			case "etc_usd":
+				amtToTrade = int(userInfo.Info.Etc.Balance / 5 * 20)
+			}
+			// var amtToTrade = 10
 			// 当前有持仓？
 			if utils.IsGoldCross(ema12, ema50, ft.Ticker.Last) {
 				if len(fpr.Holdings) > 0 {
 					amtClose := fpr.Holdings[0].SellAvailable
 					if amtClose > 0 {
-						success := doTrade(etc, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtClose), ok.CloseShort, true)
+						success := doTrade(pair, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtClose), ok.CloseShort, true)
 						if success {
-							log.Error("大爷止损成功")
+							log.WithField("交易对", name).Info("大爷止损成功")
 						} else {
-							log.Error("大爷止损失败")
+							log.WithField("交易对", name).Error("大爷止损失败")
 						}
 					}
 					if cha := fpr.Holdings[0].BuyAmount; cha < amtToTrade*3/4 {
-						success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-cha), ok.Long, true)
+						success := doTrade(pair, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-cha), ok.Long, true)
 						if success {
-							log.Info("大爷增单成功：", amtToTrade-cha)
+							log.WithField("交易对", name).Info("大爷增单成功：", amtToTrade-cha)
 							currentHolding = amtToTrade
 						} else {
-							log.Error("大爷增单失败")
+							log.WithField("交易对", name).Error("大爷增单失败")
 						}
 						continue
 					}
 				}
 				if currentHolding < amtToTrade*3/4 {
-					success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-currentHolding), ok.Long, true)
+					success := doTrade(pair, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-currentHolding), ok.Long, true)
 					if success == true {
-						log.Info("大爷开多成功,张数：", amtToTrade)
+						log.WithField("交易对", name).Info("大爷开多成功,张数：", amtToTrade)
 						currentHolding = amtToTrade
 					} else {
-						log.Info("大爷开多失败....很遗憾，检查程序bug吧。。。")
+						log.WithField("交易对", name).Error("大爷开多失败....很遗憾，检查程序bug吧。。。")
 					}
 				}
 			}
 
 			if utils.IsDeadCross(ema12, ema50, ft.Ticker.Last) {
-				ft := etc.GetFutureTicker()
+				ft := pair.GetFutureTicker()
 				if len(fpr.Holdings) > 0 {
 					amtClose := fpr.Holdings[0].BuyAvailable
 					if amtClose > 0 {
-						success := doTrade(etc, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtClose), ok.CloseLong, true)
+						success := doTrade(pair, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtClose), ok.CloseLong, true)
 						if success {
-							log.Info("大爷止损成功")
+							log.WithField("交易对", name).Info("大爷止损成功")
 						} else {
-							log.Error("大爷止损失败")
+							log.WithField("交易对", name).Error("大爷止损失败")
 						}
 					}
 					if cha := fpr.Holdings[0].SellAmount; cha < amtToTrade*3/4 {
-						success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-cha), ok.Short, true)
+						success := doTrade(pair, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-cha), ok.Short, true)
 						if success {
-							log.Info("大爷增单成功：", amtToTrade-cha)
+							log.WithField("交易对", name).Info("大爷增单成功：", amtToTrade-cha)
 							currentHolding = amtToTrade
 						} else {
-							log.Error("大爷增单失败")
+							log.WithField("交易对", name).Error("大爷增单失败")
 						}
 						continue
 					}
 				}
 				if currentHolding < amtToTrade*3/4 {
-					success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-currentHolding), ok.Short, true)
+					success := doTrade(pair, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-currentHolding), ok.Short, true)
 					if success {
-						log.Info("大爷开空成功", amtToTrade)
+						log.WithField("交易对", name).Info("大爷开空成功", amtToTrade)
 						currentHolding = amtToTrade
 					} else {
-						log.Info("大爷开空失败....很遗憾，检查程序bug吧。。。")
+						log.WithField("交易对", name).Error("大爷开空失败....很遗憾，检查程序bug吧。。。")
 					}
 				}
 			}
@@ -203,7 +215,7 @@ func tradeEMA5() {
 	}
 }
 
-func tryTakeProfit(etc *ok.Pair, ft *ok.FutureTicker, hold *ok.Holding, ema50 *utils.Ema) {
+func tryTakeProfit(pair *ok.Pair, ft *ok.FutureTicker, hold *ok.Holding) {
 	const profitTakeRatio20 = 20.00
 	const profitTakeRatio50 = 50.00
 	const profitTakeRatio100 = 100.00
@@ -214,7 +226,7 @@ func tryTakeProfit(etc *ok.Pair, ft *ok.FutureTicker, hold *ok.Holding, ema50 *u
 	if amtToClose := hold.SellAvailable; amtToClose > 0 {
 		f, _ := strconv.ParseFloat(hold.SellProfitLossratio, 64)
 		if f >= profitTakeRatio20 || f >= profitTakeRatio50 || f >= profitTakeRatio100 || f >= profitTakeRatio200 {
-			success := doTrade(etc, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtToClose/2), ok.CloseShort, false)
+			success := doTrade(pair, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtToClose/2), ok.CloseShort, false)
 			if success == true {
 				log.Info("稳得不行， 一半收益已经进入腰包。。。")
 			}
@@ -225,7 +237,7 @@ func tryTakeProfit(etc *ok.Pair, ft *ok.FutureTicker, hold *ok.Holding, ema50 *u
 	if amtToClose := hold.BuyAvailable; amtToClose > 0 {
 		f, _ := strconv.ParseFloat(hold.SellProfitLossratio, 64)
 		if f >= profitTakeRatio20 || f >= profitTakeRatio50 || f >= profitTakeRatio100 || f >= profitTakeRatio200 {
-			success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToClose/2), ok.CloseLong, false)
+			success := doTrade(pair, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToClose/2), ok.CloseLong, false)
 			if success == true {
 				log.Info("稳得不行， 一半收益已经进入腰包。。。")
 			}

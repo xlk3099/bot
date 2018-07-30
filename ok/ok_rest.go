@@ -103,14 +103,17 @@ type FutureIndex struct {
 	Index float64 `json:"future_index"`
 }
 
-// EtcFutureInfoResp represents future current state
-type EtcFutureInfoResp struct {
-	Info   pair `json:"info"`
-	Result bool `json:"result"`
+// FutureInfoResp represents future current state
+type FutureInfoResp struct {
+	Info   FutureInfoTradePair `json:"info"`
+	Result bool                `json:"result"`
 }
 
-type pair struct {
+// FutureInfoTradePair represents the tradePair
+type FutureInfoTradePair struct {
+	Bch pairDetails `json:"bch"`
 	Etc pairDetails `json:"etc"`
+	Btc pairDetails `json:"btc"`
 }
 
 type pairDetails struct {
@@ -131,12 +134,10 @@ type contract struct {
 }
 
 // NewPair creates a new ok rest handler.
-func NewPair(symbol, contractType, apiKey, apiSign string) *Pair {
+func NewPair(symbol, contractType string) *Pair {
 	return &Pair{
 		symbol:       symbol,
 		contractType: contractType,
-		apiKey:       apiKey,
-		apiSign:      apiSign,
 		c:            &http.Client{Timeout: 20 * time.Second},
 	}
 }
@@ -412,7 +413,7 @@ func (p *Pair) FutureTrade(price string, amount string, tt TradeType, matchPrice
 }
 
 // GetFutureUserInfo4Fix returns current future user info.
-func (p *Pair) GetFutureUserInfo4Fix() *EtcFutureInfoResp {
+func (p *Pair) GetFutureUserInfo4Fix() *FutureInfoResp {
 	req, err := http.NewRequest("POST", okEp+"/future_userinfo_4fix.do", nil)
 	if err != nil {
 		log.Fatal(err)
@@ -442,12 +443,12 @@ func (p *Pair) GetFutureUserInfo4Fix() *EtcFutureInfoResp {
 	if err != nil {
 		log.Error(err)
 	}
-	var etfInfo EtcFutureInfoResp
-	err = json.Unmarshal(body, &etfInfo)
+	var futureInfo FutureInfoResp
+	err = json.Unmarshal(body, &futureInfo)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &etfInfo
+	return &futureInfo
 }
 
 // func GetFuturePos() {
