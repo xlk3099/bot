@@ -125,7 +125,7 @@ type contract struct {
 	Bond         float64 `json:"bond"`
 	ContractID   int64   `json:"contract_id"`
 	ContractType string  `json:"contract_type"`
-	Freeze       int     `json:"freeze"`
+	Freeze       float64 `json:"freeze"`
 	Profit       float64 `json:"profit"`
 	UpProfit     float64 `json:"upprofit"`
 }
@@ -212,7 +212,7 @@ func (p *Pair) GetFutureTradeHistory() {
 }
 
 // GetFutureIndex returns the future index of chosen pair.
-func (p *Pair) GetFutureIndex() *FutureIndex {
+func (p *Pair) GetFutureIndex() {
 	req, err := http.NewRequest("GET", okEp+"/future_index.do", nil)
 	if err != nil {
 		log.Fatal(err)
@@ -235,7 +235,7 @@ func (p *Pair) GetFutureIndex() *FutureIndex {
 	if err != nil {
 		log.Error(err)
 	}
-	return &fi
+
 }
 
 // GetFutureKlineData returns the Kline data

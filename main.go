@@ -106,7 +106,7 @@ func tradeEMA5() {
 	}
 	ticker := time.NewTicker(5 * time.Second)
 	var currentHolding int
-	var state string
+	// var state string
 	defer ticker.Stop()
 	for {
 		select {
@@ -114,9 +114,9 @@ func tradeEMA5() {
 			ema12 := fma()
 			ema50 := sma()
 			fpr := doGetFurturePos4Fix(etc)
-			userInfo := etc.GetFutureUserInfo4Fix()
+			// userInfo := etc.GetFutureUserInfo4Fix()
 			// amtToTrade := int(userInfo.Info.Etc.Balance / 5 * 20)
-			amtToTrade = 1
+			var amtToTrade = 1
 			ft := etc.GetFutureTicker()
 			if utils.IsGoldCross(ema12, ema50, ft.Ticker.Last) {
 				if len(fpr.Holdings) > 0 {
