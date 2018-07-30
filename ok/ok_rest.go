@@ -69,12 +69,12 @@ type Kline struct {
 
 // FuturePosResp represents the futurepo response.
 type FuturePosResp struct {
-	Result   bool        `json:"result"`
-	Holdings []FuturePos `json:"holding"`
+	Result   bool      `json:"result"`
+	Holdings []Holding `json:"holding"`
 }
 
-// FuturePos represents future pos
-type FuturePos struct {
+// Holding represents future pos
+type Holding struct {
 	BuyAmount           int     `json:"buy_amount"`
 	BuyAvailable        int     `json:"buy_available"`
 	BuyBond             float64 `json:"buy_bond"`
