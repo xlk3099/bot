@@ -118,6 +118,39 @@ func tradeEMA5() {
 			// amtToTrade := int(userInfo.Info.Etc.Balance / 5 * 20)
 			var amtToTrade = 1
 			ft := etc.GetFutureTicker()
+			// 当前有持仓？
+			if len(fpr.Holdings) > 0 {
+				hold := fpr.Holdings[0]
+				// 检查当前仓位
+				if amtToClose := hold.SellAvailable; amtToClose > 0 {
+					f, _ := strconv.ParseFloat(hold.SellProfitLossratio, 64)
+					// 平空
+					if ft.Ticker.Last > ema50.Current()+0.02 {
+						success := doTrade(etc, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtToClose), ok.CloseShort, false)
+						if success {
+							log.Info("恭喜大爷做空止盈成功")
+							log.Error(" Open:", hold.SellPriceAvg, " Close:", ft.Ticker.Buy)
+						} else {
+							log.Error("抱歉大爷做空止盈失败")
+							log.Error(" Open:", hold.SellPriceAvg, " Close:", ft.Ticker.Buy)
+						}
+					}
+				}
+				if fpr.Holdings[0].BuyAvailable > 0 {
+					// 平多
+					if ft.Ticker.Last < ema50.Current()-0.02 {
+						success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToClose), ok.CloseLong, false)
+						if success {
+							log.Info("恭喜大爷做多止盈成功")
+							log.Error(" Open:", hold.SellPriceAvg, " Close:", ft.Ticker.Sell)
+						} else {
+							log.Error("抱歉大爷做多止盈失败")
+							log.Error(" Open:", hold.SellPriceAvg, " Close:", ft.Ticker.Sell)
+						}
+					}
+
+				}
+			}
 			if utils.IsGoldCross(ema12, ema50, ft.Ticker.Last) {
 				if len(fpr.Holdings) > 0 {
 					amtClose := fpr.Holdings[0].SellAvailable
