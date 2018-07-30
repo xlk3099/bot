@@ -19,6 +19,8 @@ var addr = flag.String("addr", "real.okex.com:10440", "http service address")
 
 type state = string
 
+const profitTakeRatio = 200.00
+
 func init() {
 	// init logrus
 	formatter := &log.TextFormatter{
@@ -124,8 +126,8 @@ func tradeEMA5() {
 				// 检查当前仓位
 				if amtToClose := hold.SellAvailable; amtToClose > 0 {
 					f, _ := strconv.ParseFloat(hold.SellProfitLossratio, 64)
-					// 平空
-					if ft.Ticker.Last > ema50.Current()+0.02 {
+					// 止盈平空
+					if f > profitTakeRatio || ft.Ticker.Last > ema50.Current()+0.02 {
 						success := doTrade(etc, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtToClose), ok.CloseShort, false)
 						if success {
 							log.Info("恭喜大爷做空止盈成功")
@@ -136,9 +138,10 @@ func tradeEMA5() {
 						}
 					}
 				}
-				if fpr.Holdings[0].BuyAvailable > 0 {
-					// 平多
-					if ft.Ticker.Last < ema50.Current()-0.02 {
+				if amtToClose := fpr.Holdings[0].BuyAvailable; amtToClose > 0 {
+					f, _ := strconv.ParseFloat(hold.SellProfitLossratio, 64)
+					// 止盈平多
+					if f > profitTakeRatio || ft.Ticker.Last < ema50.Current()-0.02 {
 						success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToClose), ok.CloseLong, false)
 						if success {
 							log.Info("恭喜大爷做多止盈成功")
