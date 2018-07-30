@@ -103,8 +103,8 @@ func tradeEMA5() {
 		return sma
 	}
 
-	ema12 = fma()
-	ema50 = sma()
+	ema12 := fma()
+	ema50 := sma()
 
 	ticker5 := time.NewTicker(5 * time.Second)
 	ticker1 := time.NewTicker(1 * time.Second)
@@ -112,8 +112,6 @@ func tradeEMA5() {
 	defer ticker5.Stop()
 	defer ticker1.Stop()
 
-	var ema12 *utils.Ema
-	var ema50 *utils.Ema
 	var fpr *ok.FuturePosResp
 	var ft *ok.FutureTicker
 	var currentHolding int
