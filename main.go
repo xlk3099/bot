@@ -219,12 +219,8 @@ func tryTakeProfit(etc *ok.Pair, ft *ok.FutureTicker, hold *ok.Holding, ema50 *u
 		} else if ft.Ticker.Last > ema50.Current()+0.02 {
 			success = doTrade(etc, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtToClose), ok.CloseShort, false)
 		}
-
 		if success {
 			log.Info("恭喜大爷做空止盈成功")
-			log.Error(" Open:", hold.SellPriceAvg, " Close:", ft.Ticker.Buy)
-		} else {
-			log.Error("抱歉大爷做空止盈失败")
 			log.Error(" Open:", hold.SellPriceAvg, " Close:", ft.Ticker.Buy)
 		}
 		return
@@ -240,9 +236,6 @@ func tryTakeProfit(etc *ok.Pair, ft *ok.FutureTicker, hold *ok.Holding, ema50 *u
 		}
 		if success {
 			log.Info("恭喜大爷做多止盈成功")
-			log.Error(" Open:", hold.BuyPriceAvg, " Close:", ft.Ticker.Sell)
-		} else {
-			log.Error("抱歉大爷做多止盈失败")
 			log.Error(" Open:", hold.BuyPriceAvg, " Close:", ft.Ticker.Sell)
 		}
 		return
