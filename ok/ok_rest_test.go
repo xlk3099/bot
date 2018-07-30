@@ -12,7 +12,7 @@ import (
 var etcPair = ok.NewPair("etc_usd", "this_week", "", "")
 
 func TestGetFuturePos(t *testing.T) {
-	ftr := etcPair.GetFuturePos4Fix()
+	ftr, _ := etcPair.GetFuturePos4Fix()
 	log.Info(len(ftr.Holdings))
 	log.Info(ftr.Holdings[0].BuyAvailable)
 }
@@ -26,7 +26,7 @@ func TestGetFuturePos(t *testing.T) {
 func TestFutureTrade(t *testing.T) {
 	ft := etcPair.GetFutureTicker()
 	etcPair.FutureTrade(utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(1), ok.Long, true)
-	ftr := etcPair.GetFuturePos4Fix()
+	ftr, _ := etcPair.GetFuturePos4Fix()
 	log.Info(ftr)
 	log.Info(len(ftr.Holdings))
 }

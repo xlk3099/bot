@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"flag"
 	"net/http"
 	"os"
@@ -102,36 +103,37 @@ func tradeEMA5() {
 		}
 		return sma
 	}
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			ema12 := fma()
 			ema50 := sma()
-			fpr := etc.GetFuturePos4Fix()
-			userInfo := etc.GetFutureUserInfo4Fix()
+			fpr := doGetFurturePos4Fix(etc)
 			if len(fpr.Holdings) > 0 {
 				data, _ := json.Marshal(fpr.Holdings[0])
 				log.Info(string(data))
 			}
+			userInfo := etc.GetFutureUserInfo4Fix()
 			amtToTrade := int(userInfo.Info.Etc.Balance / 5 * 20)
-			if utils.IsGoldCross(ema12, ema50) {
+			ft := etc.GetFutureTicker()
+
+			if utils.IsGoldCross(ema12, ema50, ft.Ticker.Last) {
 				log.Info("卧槽，金叉了。。。")
-				ft := etc.GetFutureTicker()
 				if len(fpr.Holdings) > 0 {
 					amtClose := fpr.Holdings[0].SellAvailable
 					if amtClose > 0 {
-						rsp := etc.FutureTrade(utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtClose), ok.CloseShort, true)
-						if rsp.Result == true {
-							log.Info("大爷止损成功")
+						success := doTrade(etc, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtClose), ok.CloseShort, true)
+						if success {
+							log.Error("大爷止损成功")
 						} else {
 							log.Error("大爷止损失败")
 						}
 					}
-					if cha := fpr.Holdings[0].BuyAmount; cha < amtToTrade {
-						rsp := etc.FutureTrade(utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-cha), ok.Long, true)
-						if rsp.Result == true {
+					if cha := fpr.Holdings[0].BuyAmount; cha < amtToTrade*3/4 {
+						success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-cha), ok.Long, true)
+						if success {
 							log.Info("大爷增单成功：", amtToTrade-cha)
 						} else {
 							log.Error("大爷增单失败")
@@ -139,30 +141,30 @@ func tradeEMA5() {
 						continue
 					}
 				}
-				rsp := etc.FutureTrade(utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade), ok.Long, true)
-				if rsp.Result == true {
+				success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade), ok.Long, true)
+				if success == true {
 					log.Info("大爷开多成功,张数：", amtToTrade)
 				} else {
 					log.Info("大爷开多失败....很遗憾，检查程序bug吧。。。")
 				}
 			}
 
-			if utils.IsDeadCross(ema12, ema50) {
+			if utils.IsDeadCross(ema12, ema50, ft.Ticker.Last) {
 				log.Info("卧槽，死叉了。。。")
 				ft := etc.GetFutureTicker()
 				if len(fpr.Holdings) > 0 {
 					amtClose := fpr.Holdings[0].BuyAvailable
 					if amtClose > 0 {
-						rsp := etc.FutureTrade(utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtClose), ok.CloseLong, true)
-						if rsp.Result == true {
+						success := doTrade(etc, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtClose), ok.CloseLong, true)
+						if success {
 							log.Info("大爷止损成功")
 						} else {
 							log.Error("大爷止损失败")
 						}
 					}
-					if cha := fpr.Holdings[0].SellAmount; cha < amtToTrade {
-						rsp := etc.FutureTrade(utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-cha), ok.Short, true)
-						if rsp.Result == true {
+					if cha := fpr.Holdings[0].SellAmount; cha < amtToTrade*3/4 {
+						success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade-cha), ok.Short, true)
+						if success {
 							log.Info("大爷增单成功：", amtToTrade-cha)
 						} else {
 							log.Error("大爷增单失败")
@@ -170,11 +172,11 @@ func tradeEMA5() {
 						continue
 					}
 				}
-				rsp := etc.FutureTrade(utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade), ok.Short, true)
-				if rsp.Result == true {
+				success := doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToTrade), ok.Short, true)
+				if success {
 					log.Info("大爷开空成功", amtToTrade)
 				} else {
-					log.Info("大爷开多失败....很遗憾，检查程序bug吧。。。")
+					log.Info("大爷开空失败....很遗憾，检查程序bug吧。。。")
 				}
 			}
 			log.Info("5min EMA12:", ema12.Current(), " 5min EMA50:", ema50.Current())
@@ -213,3 +215,40 @@ func tradeEMA5() {
 // 	ticker := time.NewTicker(60 * time.Minute)
 // 	defer ticker.Stop()
 // }
+
+func doGetFurturePos4Fix(pair *ok.Pair) *ok.FuturePosResp {
+	var futurePos *ok.FuturePosResp
+	var errNotFound = errors.New("unable to get current holdings")
+	err := utils.Do(func(attempt int) (bool, error) {
+		var err error
+		futurePos, err = pair.GetFuturePos4Fix()
+		if len(futurePos.Holdings) < 0 {
+			err = errNotFound
+		}
+		time.Sleep(300 * time.Millisecond)
+		return attempt < 10, err // try 5 times
+	})
+
+	if err != nil {
+		log.WithError(err).Error("unable to get future current future holdings")
+		return nil
+	}
+	return futurePos
+}
+
+func doTrade(pair *ok.Pair, price string, amount string, tradeType ok.TradeType, matching bool) bool {
+	var errTradeFail = errors.New("failed to trade")
+	err := utils.Do(func(attempt int) (bool, error) {
+		var err error
+		resp := pair.FutureTrade(price, amount, tradeType, matching)
+		if !resp.Result {
+			err = errTradeFail
+		}
+		time.Sleep(300 * time.Millisecond)
+		return attempt < 10, err // try 5 times
+	})
+	if err != nil {
+		return false
+	}
+	return true
+}

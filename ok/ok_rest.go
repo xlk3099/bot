@@ -15,9 +15,6 @@ import (
 
 var okEp = "https://www.okex.com/api/v1"
 
-var apiKey = "
-var apiSceret = ""
-
 // TradeType is a string alias
 type TradeType = string
 
@@ -99,6 +96,11 @@ type FuturePos struct {
 	SellProfitReal      float64 `json:"sell_profit_real"`
 	Symbol              string  `json:"symbol"`
 	LevelRate           int     `json:"lever_rate"`
+}
+
+// FutureIndex represents the future index in rest resp.
+type FutureIndex struct {
+	Index float64 `json:"future_index"`
 }
 
 // EtcFutureInfoResp represents future current state
@@ -210,7 +212,7 @@ func (p *Pair) GetFutureTradeHistory() {
 }
 
 // GetFutureIndex returns the future index of chosen pair.
-func (p *Pair) GetFutureIndex() {
+func (p *Pair) GetFutureIndex() *FutureIndex {
 	req, err := http.NewRequest("GET", okEp+"/future_index.do", nil)
 	if err != nil {
 		log.Fatal(err)
@@ -228,7 +230,12 @@ func (p *Pair) GetFutureIndex() {
 	if err != nil {
 		log.Error(err)
 	}
-	log.Info(string(body))
+	var fi FutureIndex
+	err = json.Unmarshal(body, &fi)
+	if err != nil {
+		log.Error(err)
+	}
+	return &fi
 }
 
 // GetFutureKlineData returns the Kline data
@@ -298,10 +305,10 @@ func (p *Pair) GetFutureKlineData(klineType string) []*Kline {
 }
 
 // GetFuturePos4Fix returns current user future info .
-func (p *Pair) GetFuturePos4Fix() *FuturePosResp {
+func (p *Pair) GetFuturePos4Fix() (*FuturePosResp, error) {
 	req, err := http.NewRequest("POST", okEp+"/future_position_4fix", nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	params := make(map[string]string)
 	params["api_key"] = apiKey
@@ -326,19 +333,19 @@ func (p *Pair) GetFuturePos4Fix() *FuturePosResp {
 	req.URL.RawQuery = q.Encode()
 	resp, err := p.c.Do(req)
 	if err != nil {
-		log.Error(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Error(err)
+		return nil, err
 	}
 	var ftr FuturePosResp
 	err = json.Unmarshal(body, &ftr)
 	if err != nil {
-		log.Error(err)
+		return nil, err
 	}
-	return &ftr
+	return &ftr, nil
 }
 
 // TradeResp returns trade resp
