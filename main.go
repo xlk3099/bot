@@ -85,8 +85,6 @@ func trade() {
 // }
 
 func tradeEMA5() {
-	// calculate EMA5
-	// calculate ema1
 	etc := ok.NewPair("etc_usd", "this_week", "", "")
 	fma := func() *utils.Ema {
 		klines := etc.GetFutureKlineData("5min")
@@ -107,13 +105,16 @@ func tradeEMA5() {
 	ticker5 := time.NewTicker(5 * time.Second)
 	ticker1 := time.NewTicker(1 * time.Second)
 
+	defer ticker5.Stop()
+	defer ticker1.Stop()
+
 	var ema12 *utils.Ema
 	var ema50 *utils.Ema
 	var fpr *ok.FuturePosResp
 	var ft *ok.FutureTicker
 	var currentHolding int
 	// var state string
-	defer ticker5.Stop()
+
 	for {
 		select {
 		case <-ticker1.C:
