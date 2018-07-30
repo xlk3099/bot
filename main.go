@@ -217,10 +217,6 @@ func tryTakeProfit(etc *ok.Pair, ft *ok.FutureTicker, hold *ok.Holding, ema50 *u
 			success = doTrade(etc, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtToClose/2), ok.CloseShort, false)
 			log.Info("稳得不行， 一半收益已经进入腰包。。。")
 		}
-		if success {
-			log.Info("恭喜大爷做空止盈成功")
-			log.Error(" Open:", hold.SellPriceAvg, " Close:", ft.Ticker.Buy)
-		}
 		return
 	}
 	// 做多止盈
