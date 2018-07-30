@@ -68,8 +68,8 @@ func (ema *Ema) Current() float64 {
 
 // IsGoldCross check if two ema gold cross or not.
 func IsGoldCross(fma *Ema, sma *Ema, currentPrice float64) bool {
-	if fma.Last3() < sma.Last3() {
-		if fma.Last2() > sma.Last2() {
+	if fma.Last2() < sma.Last2() {
+		if fma.Current() > sma.Current() {
 			log.Info("fma 金叉前:", fma.Last3(), " sma 金叉前:", sma.Last3())
 			log.Info("fma 最新:", fma.Last2(), " sma 最新:", sma.Last3())
 			return true
@@ -80,8 +80,8 @@ func IsGoldCross(fma *Ema, sma *Ema, currentPrice float64) bool {
 
 // IsDeadCross checks if two ema death cross or not.
 func IsDeadCross(fma *Ema, sma *Ema, currentPrice float64) bool {
-	if fma.Last3() > sma.Last3() {
-		if fma.Last2() < sma.Last2() {
+	if fma.Last2() > sma.Last2() {
+		if fma.Current() < sma.Current() {
 			log.Info("fma 死叉前:", fma.Last3(), " sma 死叉前:", sma.Last3())
 			log.Info("fma 最新:", fma.Last2(), " sma 最新:", sma.Last3())
 			return true
