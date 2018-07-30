@@ -102,6 +102,10 @@ func tradeEMA5() {
 		}
 		return sma
 	}
+
+	ema12 = fma()
+	ema50 = sma()
+
 	ticker5 := time.NewTicker(5 * time.Second)
 	ticker1 := time.NewTicker(1 * time.Second)
 
