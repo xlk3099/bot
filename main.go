@@ -87,7 +87,7 @@ func trade() {
 func tradeEMA5() {
 	etc := ok.NewPair("etc_usd", "this_week", "", "")
 	fma := func() *utils.Ema {
-		klines := etc.GetFutureKlineData("5min")
+		klines := etc.GetFutureKlineData("15min")
 		fma := utils.NewEma(12)
 		for _, k := range klines {
 			fma.Add(k.TimeStamp, k.Close)
@@ -95,7 +95,7 @@ func tradeEMA5() {
 		return fma
 	}
 	sma := func() *utils.Ema {
-		klines := etc.GetFutureKlineData("5min")
+		klines := etc.GetFutureKlineData("15min")
 		sma := utils.NewEma(50)
 		for _, k := range klines {
 			sma.Add(k.TimeStamp, k.Close)
@@ -216,8 +216,6 @@ func tryTakeProfit(etc *ok.Pair, ft *ok.FutureTicker, hold *ok.Holding, ema50 *u
 		if f >= profitTakeRatio50 || f >= profitTakeRatio100 || f >= profitTakeRatio200 {
 			success = doTrade(etc, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtToClose/2), ok.CloseShort, false)
 			log.Info("稳得不行， 一半收益已经进入腰包。。。")
-		} else if ft.Ticker.Last > ema50.Current()+0.02 {
-			success = doTrade(etc, utils.Float64ToString(ft.Ticker.Buy), strconv.Itoa(amtToClose), ok.CloseShort, false)
 		}
 		if success {
 			log.Info("恭喜大爷做空止盈成功")
@@ -231,12 +229,6 @@ func tryTakeProfit(etc *ok.Pair, ft *ok.FutureTicker, hold *ok.Holding, ema50 *u
 		if f >= profitTakeRatio50 || f >= profitTakeRatio100 || f >= profitTakeRatio200 {
 			success = doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToClose/2), ok.CloseLong, false)
 			log.Info("稳得不行， 一半收益已经进入腰包。。。")
-		} else if ft.Ticker.Last < ema50.Current()-0.02 {
-			success = doTrade(etc, utils.Float64ToString(ft.Ticker.Sell), strconv.Itoa(amtToClose), ok.CloseLong, false)
-		}
-		if success {
-			log.Info("恭喜大爷做多止盈成功")
-			log.Error(" Open:", hold.BuyPriceAvg, " Close:", ft.Ticker.Sell)
 		}
 		return
 	}
